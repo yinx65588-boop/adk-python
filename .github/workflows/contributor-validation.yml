@@ -1,0 +1,37 @@
+name: Contributor validation for ADK PR 7551
+
+on:
+  push:
+    branches:
+      - release/contributor-7551-linux-ci
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit tests on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        with:
+          enable-cache: true
+      - name: Set dependency resolution cutoff
+        run: echo "UV_EXCLUDE_NEWER=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Install upstream test dependencies
+        run: uv sync --extra test --no-install-package lancedb
+      - name: Run the full unit suite
+        run: |
+          set -o pipefail
+          uv run --no-sync pytest tests/unittests -n auto --tb=short | tee pytest.log
